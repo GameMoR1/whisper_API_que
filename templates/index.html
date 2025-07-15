@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Transcribe API — Мониторинг и загрузка</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark">
+    <div class="container">
+        <h1>Transcribe API</h1>
+        <section class="upload-section">
+            <h2>Загрузить аудиофайл для транскрибации</h2>
+            <form id="upload-form">
+                <div class="form-row">
+                    <label>
+                        Аудиофайл <span style="color:#ffd580">*</span><br>
+                        <small>Выберите аудиофайл для транскрибации (mp3, wav, ogg, m4a, flac).</small>
+                    </label>
+                    <input type="file" name="file" accept=".mp3,.wav,.ogg,.m4a,.flac" required>
+                </div>
+                <div class="form-row">
+                    <label>
+                        Модель Whisper<br>
+                        <small>Выберите модель для распознавания речи. Чем больше модель — тем выше качество, но дольше обработка.</small>
+                    </label>
+                    <select name="model_name">
+                        <option value="tiny">tiny</option>
+                        <option value="base" selected>base</option>
+                        <option value="small">small</option>
+                        <option value="medium">medium</option>
+                        <option value="large-v2">large-v2</option>
+                        <option value="large-v3">large-v3</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>
+                        Промт (подсказка)<br>
+                        <small>Фразы, слова или контекст, которые помогут Whisper корректно транскрибировать речь (необязательно).</small>
+                    </label>
+                    <input type="text" name="initial_prompt" placeholder="Например: 'Здравствуйте, меня зовут...'">
+                </div>
+                <div class="form-row">
+                    <label>
+                        Скорость (x)<br>
+                        <small>Во сколько раз ускорить запись перед транскрибацией. Например, 1.0 — без изменений, 1.5 — ускорить в 1.5 раза.</small>
+                    </label>
+                    <input type="number" step="0.1" min="0.5" max="3" name="up_speed" value="1.0" placeholder="1.0">
+                </div>
+                <div class="form-row checkbox-row">
+                    <label>
+                        <input type="checkbox" name="upgrade_transcribation">
+                        Улучшить через GPT<br>
+                        <small>Использовать нейросеть для исправления ошибок и улучшения читабельности текста.</small>
+                    </label>
+                </div>
+                <button type="submit">Отправить</button>
+            </form>
+            <div id="transcribe-status" class="status"></div>
+            <pre id="transcribe-result" class="result"></pre>
+        </section>
+        <section>
+            <h2>Статус загрузки моделей</h2>
+            <div id="model-status" class="panel"></div>
+        </section>
+        <section>
+            <h2>Статус GPU</h2>
+            <div id="gpu-info" class="panel"></div>
+        </section>
+        <section>
+            <h2>Очередь задач</h2>
+            <div id="queue" class="panel"></div>
+        </section>
+        <section>
+            <h2>Логи событий</h2>
+            <div id="logs" class="panel"></div>
+        </section>
+    </div>
+    <script>
+        // Загрузка файла и получение результата
+        document.getElementById('upload-form').onsubmit = async function(e) {
+            e.preventDefault();
+            document.getElementById('transcribe-status').textContent = 'Загрузка...';
+            document.getElementById('transcribe-result').textContent = '';
+            const formData = new FormData(this);
+            const resp = await fetch('/api/transcribe', {method: 'POST', body: formData});
+            const data = await resp.json();
+            if (!data.task_id) {
+                document.getElementById('transcribe-status').textContent = data.error || 'Ошибка при постановке задачи';
+                return;
+            }
+            document.getElementById('transcribe-status').textContent = 'Задача поставлена. Ожидание результата...';
+            // Опрос статуса
+            async function poll() {
+                const r = await fetch('/api/status/' + data.task_id);
+                const s = await r.json();
+                if (s.status === 'done') {
+                    document.getElementById('transcribe-status').textContent = 'Готово!';
+                    document.getElementById('transcribe-result').textContent = s.result;
+                } else if (s.status === 'error') {
+                    document.getElementById('transcribe-status').textContent = 'Ошибка: ' + s.error;
+                } else {
+                    setTimeout(poll, 1000);
+                }
+            }
+            poll();
+        };
+
+        // Мониторинг статуса системы
+        async function updateAll() {
+            const [gpus, queue, logs] = await Promise.all([
+                fetch('/api/gpus').then(r=>r.json()),
+                fetch('/api/queue').then(r=>r.json()),
+                fetch('/api/logs').then(r=>r.json())
+            ]);
+
+            document.getElementById('gpu-info').innerHTML = gpus.length
+                ? `<table class="gpu-table">
+                    <tr>
+                        <th>ID</th>
+                        <th>Название</th>
+                        <th>Память</th>
+                        <th>Занято</th>
+                        <th>% загрузки</th>
+                    </tr>
+                    ${gpus.map(g =>
+                        `<tr>
+                            <td>${g.id}</td>
+                            <td>${g.name}</td>
+                            <td>${g.memory_total_mb} МБ</td>
+                            <td>${g.memory_used_mb} МБ</td>
+                            <td>${g.utilization_gpu !== null && g.utilization_gpu !== undefined ? g.utilization_gpu + ' %' : '—'}</td>
+                        </tr>`).join('')}
+                  </table>`
+                : '<div class="empty">Нет доступных GPU</div>';
+
+            document.getElementById('queue').innerHTML = `
+                <div class="queue-block">
+                    <span>В очереди: <b>${queue.queue.length}</b></span>
+                    <span>В обработке: <b>${queue.processing.length}</b></span>
+                    <span>Завершено: <b>${queue.completed.length}</b></span>
+                    <span>Ошибки: <b>${queue.failed.length}</b></span>
+                </div>
+                <div class="queue-lists">
+                    ${queue.queue.length ? `<div><b>Очередь:</b><ul>${queue.queue.map(t=>`<li>${t.filename} (${t.id.slice(0,8)})</li>`).join('')}</ul></div>` : ''}
+                    ${queue.processing.length ? `<div><b>В обработке:</b><ul>${queue.processing.map(t=>`<li>${t.filename} (GPU ${t.gpu_id})</li>`).join('')}</ul></div>` : ''}
+                </div>
+            `;
+
+            document.getElementById('logs').innerHTML =
+                logs.length
+                    ? logs.slice().reverse().slice(0,30).map(
+                        l=>`<div class="log-line"><span class="log-time">[${l.time.slice(11,19)}]</span> ${l.msg}</div>`
+                    ).join('')
+                    : '<div class="empty">Логов пока нет</div>';
+        }
+        setInterval(updateAll, 1000);
+        updateAll();
+
+        // Мониторинг загрузки моделей
+        async function updateModelStatus() {
+            const status = await fetch('/api/model_status').then(r=>r.json());
+            let html = '<table class="gpu-table"><tr><th>Модель</th><th>Статус</th></tr>';
+            for (const [model, st] of Object.entries(status)) {
+                let color =
+                    st === "downloaded" ? "#8be9fd" :
+                    st === "downloading" ? "#ffd580" :
+                    st === "error" ? "#ff5555" : "#b6b6b6";
+                html += `<tr>
+                    <td>${model}</td>
+                    <td style="color:${color};font-weight:600">${st}</td>
+                </tr>`;
+            }
+            html += '</table>';
+            document.getElementById('model-status').innerHTML = html;
+        }
+        setInterval(updateModelStatus, 1000);
+        updateModelStatus();
+    </script>
+</body>
+</html>
