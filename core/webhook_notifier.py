@@ -4,7 +4,7 @@ import requests
 
 WEBHOOK_ENABLED = True
 
-def webhook_notifier(queue, url, interval=60):
+def webhook_notifier(queue, url, interval=600):  # 600 секунд = 10 минут
     while True:
         time.sleep(interval)
         if not WEBHOOK_ENABLED:
