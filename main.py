@@ -31,7 +31,7 @@ for gpu_id in range(torch.cuda.device_count()):
     worker.start()
 
 # --- Запуск webhook-нотификатора, если очередь пуста ---
-webhook_url = "https://n8n.kyter.space/webhook-test/a141441b-57cf-4c44-b131-bd86cb9c3a3a"
+webhook_url = "https://n8n.kyter.space/webhook/a141441b-57cf-4c44-b131-bd86cb9c3a3a"
 notifier_thread = threading.Thread(target=webhook_notifier, args=(queue, webhook_url), daemon=True)
 notifier_thread.start()
 
