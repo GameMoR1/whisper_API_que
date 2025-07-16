@@ -59,6 +59,10 @@
             <pre id="transcribe-result" class="result"></pre>
         </section>
         <section>
+            <h2>Webhook таймер</h2>
+            <div id="webhook-timer" class="panel"></div>
+        </section>
+        <section>
             <h2>Статус загрузки моделей</h2>
             <div id="model-status" class="panel"></div>
         </section>
@@ -175,6 +179,22 @@
         }
         setInterval(updateModelStatus, 1000);
         updateModelStatus();
+
+        // Таймер webhook
+        async function updateWebhookTimer() {
+            const timer = await fetch('/api/webhook_timer').then(r=>r.json());
+            let html = '';
+            if (!timer.enabled) {
+                html = '<span style="color:#aaa">Webhook отключён</span>';
+            } else {
+                const min = Math.floor(timer.remaining / 60);
+                const sec = timer.remaining % 60;
+                html = `<b>До вызова webhook:</b> <span style="color:#8be9fd">${min}:${sec.toString().padStart(2,'0')}</span>`;
+            }
+            document.getElementById('webhook-timer').innerHTML = html;
+        }
+        setInterval(updateWebhookTimer, 1000);
+        updateWebhookTimer();
     </script>
 </body>
 </html>

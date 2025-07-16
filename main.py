@@ -8,6 +8,7 @@ from core.task import Task
 from core.utils import log_event, get_logs, cleanup_files
 from core.model_manager import ModelManager, MODEL_NAMES
 from core.webhook_notifier import webhook_notifier
+from core.webhook_timer import get_webhook_timer_state
 import torch
 import os
 import tempfile
@@ -184,6 +185,10 @@ def get_gpus():
 @app.get("/api/logs")
 def api_logs():
     return get_logs(logs, 200)
+
+@app.get("/api/webhook_timer")
+def api_webhook_timer():
+    return get_webhook_timer_state(queue)
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
