@@ -7,6 +7,7 @@ from core.gpu import GPUWorker
 from core.task import Task
 from core.utils import log_event, get_logs, cleanup_files
 from core.model_manager import ModelManager, MODEL_NAMES
+from core.webhook_notifier import webhook_notifier
 import torch
 import os
 import tempfile
@@ -28,6 +29,11 @@ preload_thread.start()
 for gpu_id in range(torch.cuda.device_count()):
     worker = GPUWorker(gpu_id, queue, log)
     worker.start()
+
+# --- Запуск webhook-нотификатора, если очередь пуста ---
+webhook_url = "https://n8n.kyter.space/webhook-test/a141441b-57cf-4c44-b131-bd86cb9c3a3a"
+notifier_thread = threading.Thread(target=webhook_notifier, args=(queue, webhook_url), daemon=True)
+notifier_thread.start()
 
 TEMP_DIR = os.path.abspath("temp_files")
 os.makedirs(TEMP_DIR, exist_ok=True)
@@ -101,6 +107,12 @@ def task_status(task_id: str):
         if task.id == task_id:
             return {"status": task.status, "result": None}
     return JSONResponse({"error": "Task not found"}, status_code=404)
+
+@app.get("/api/status")
+def api_status():
+    # Проверяем, все ли модели загружены
+    all_loaded = all(model_manager.is_downloaded(name) for name in MODEL_NAMES)
+    return {"status": all_loaded}
 
 @app.get("/api/queue")
 def get_queue():
