@@ -45,12 +45,12 @@ class TaskQueue:
         try:
             log_data = {
                 "filename": task.filename,
-                "duration": getattr(task, "duration", 0.0),
-                "size": task.file_size or 0,
-                "received_at": task.created_at.isoformat() if task.created_at else None,
-                "queue_time": task.queue_time or 0.0,
-                "process_time": task.processing_time or 0.0,
-                "text": task.result or ""
+                "duration": float(getattr(task, "duration", 0.0)),
+                "size": int(task.file_size or 0),
+                "received_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S") if task.created_at else None,
+                "queue_time": float(task.queue_time or 0.0),
+                "process_time": float(task.processing_time or 0.0),
+                "text": str(task.result or "")
             }
             send_log_data(log_data)
         except Exception:
