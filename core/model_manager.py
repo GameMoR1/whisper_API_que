@@ -1,9 +1,7 @@
+from core.config import MODEL_NAMES
 import whisper
 import threading
-import os
 
-MODEL_NAMES = ["tiny", "base", "small", "medium", "large-v2", "large-v3"]
-# MODEL_NAMES = ["tiny"]
 
 class ModelManager:
     def __init__(self):

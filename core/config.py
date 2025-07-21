@@ -1,0 +1,18 @@
+# Все основные константы для настройки сервиса
+
+# Список поддерживаемых моделей Whisper
+MODEL_NAMES = [
+    "tiny", "base", "small", "medium", "large-v2", "large-v3"
+]
+
+# Интервал до вызова webhook (секунды)
+WEBHOOK_INTERVAL = 600  # 10 минут
+
+# Включение/отключение webhook-нотификатора
+WEBHOOK_ENABLED = True
+
+# URL для webhook
+WEBHOOK_URL = "https://n8n.kyter.space/webhook-test/a141441b-57cf-4c44-b131-bd86cb9c3a3a"
+
+# URL для логирования задач (заполните после)
+LOGGER_API_URL = ""

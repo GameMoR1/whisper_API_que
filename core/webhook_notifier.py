@@ -1,10 +1,9 @@
 import threading
 import time
 import requests
+from core.config import WEBHOOK_ENABLED, WEBHOOK_INTERVAL
 
-WEBHOOK_ENABLED = True
-
-def webhook_notifier(queue, url, interval=600):  # 600 секунд = 10 минут
+def webhook_notifier(queue, url, interval=WEBHOOK_INTERVAL):  # 600 секунд = 10 минут
     while True:
         time.sleep(interval)
         if not WEBHOOK_ENABLED:

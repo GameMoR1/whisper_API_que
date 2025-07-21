@@ -9,6 +9,7 @@ from core.utils import log_event, get_logs, cleanup_files
 from core.model_manager import ModelManager, MODEL_NAMES
 from core.webhook_notifier import webhook_notifier
 from core.webhook_timer import get_webhook_timer_state
+from core.config import WEBHOOK_URL
 import torch
 import os
 import tempfile
@@ -32,8 +33,7 @@ for gpu_id in range(torch.cuda.device_count()):
     worker.start()
 
 # --- Запуск webhook-нотификатора, если очередь пуста ---
-webhook_url = "https://n8n.kyter.space/webhook/a141441b-57cf-4c44-b131-bd86cb9c3a3a"
-notifier_thread = threading.Thread(target=webhook_notifier, args=(queue, webhook_url), daemon=True)
+notifier_thread = threading.Thread(target=webhook_notifier, args=(queue, WEBHOOK_URL), daemon=True)
 notifier_thread.start()
 
 TEMP_DIR = os.path.abspath("temp_files")
@@ -66,6 +66,19 @@ async def transcribe(
     # Получаем размер файла
     file_size = os.path.getsize(input_path)
 
+    # Получаем длительность аудио (секунды)
+    import subprocess
+    import json
+    try:
+        ffprobe_cmd = [
+            'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+            '-of', 'json', input_path
+        ]
+        ffprobe_out = subprocess.check_output(ffprobe_cmd, encoding='utf-8')
+        duration = float(json.loads(ffprobe_out)['format']['duration'])
+    except Exception:
+        duration = 0.0
+
     task = Task(
         file_path=input_path,
         filename=file.filename,
@@ -75,6 +88,7 @@ async def transcribe(
         upgrade_transcribation=upgrade_transcribation
     )
     task.file_size = file_size
+    task.duration = duration
 
     queue.add_task(task)
     log(f"Task {task.id} queued: {file.filename} | Model: {model_name} | File size: {file_size} bytes")
