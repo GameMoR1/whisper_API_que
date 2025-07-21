@@ -1,6 +1,7 @@
 import threading
 from collections import deque
 from core.logger import send_log_data
+from core.utils import log_event
 
 class TaskQueue:
     def __init__(self):
@@ -52,9 +53,11 @@ class TaskQueue:
                 "process_time": float(task.processing_time or 0.0),
                 "text": str(task.result or "")
             }
-            send_log_data(log_data)
-        except Exception:
-            pass
+            from main import logs as global_logs
+            send_log_data(log_data, logs=global_logs)
+        except Exception as e:
+            from main import logs as global_logs
+            log_event(global_logs, f"Ошибка логирования: {e}")
 
     def mark_failed(self, task, error):
         with self.lock:
