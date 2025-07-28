@@ -70,6 +70,9 @@ def transcribe_audio(task, gpu_id):
         torch.cuda.empty_cache()
         os.remove(mp3_path)
 
+    # Сохраняем сегменты для split_roads
+    task.segments = result.get('segments', [])
+
     def format_timestamp(seconds):
         m, s = divmod(int(seconds), 60)
         return f"{m:02d}:{s:02d}"

@@ -53,6 +53,19 @@
                         <small>Использовать нейросеть для исправления ошибок и улучшения читабельности текста.</small>
                     </label>
                 </div>
+                <div class="form-row checkbox-row">
+                    <label>
+                        <input type="checkbox" id="split-roads-checkbox" name="split_roads_enable">
+                        Разделить на дорожки<br>
+                        <small>Если включено, файл будет разделён на несколько дорожек (ролей).</small>
+                    </label>
+                </div>
+                <div id="split-roads-fields" style="display:none; margin-bottom:10px;">
+                    <div class="form-row">
+                        <label>Количество дорожек (ролей): <input type="number" id="split-roads-count" min="2" max="8" value="2" style="width:60px;"></label>
+                    </div>
+                    <div id="split-roads-names"></div>
+                </div>
                 <button type="submit">Отправить</button>
             </form>
             <div id="transcribe-status" class="status"></div>
@@ -81,11 +94,46 @@
     </div>
     <script>
         // Загрузка файла и получение результата
+        // --- Split roads UI ---
+        const splitCheckbox = document.getElementById('split-roads-checkbox');
+        const splitFields = document.getElementById('split-roads-fields');
+        const splitCount = document.getElementById('split-roads-count');
+        const splitNames = document.getElementById('split-roads-names');
+
+        function updateRoleFields() {
+            const n = parseInt(splitCount.value) || 2;
+            splitNames.innerHTML = '';
+            for (let i = 0; i < n; ++i) {
+                const inp = document.createElement('input');
+                inp.type = 'text';
+                inp.placeholder = 'Роль ' + (i+1);
+                inp.required = true;
+                inp.name = 'split_role_' + i;
+                inp.style = 'margin-right:8px; margin-bottom:4px; width:120px;';
+                splitNames.appendChild(inp);
+            }
+        }
+        splitCheckbox.addEventListener('change', function() {
+            splitFields.style.display = this.checked ? '' : 'none';
+        });
+        splitCount.addEventListener('input', updateRoleFields);
+        updateRoleFields();
+
+        // --- Submit handler ---
         document.getElementById('upload-form').onsubmit = async function(e) {
             e.preventDefault();
             document.getElementById('transcribe-status').textContent = 'Загрузка...';
             document.getElementById('transcribe-result').textContent = '';
             const formData = new FormData(this);
+            if (splitCheckbox.checked) {
+                const n = parseInt(splitCount.value) || 2;
+                let split_roads = n + '';
+                for (let i = 0; i < n; ++i) {
+                    const val = splitNames.children[i].value.trim() || ('Роль'+(i+1));
+                    split_roads += ',' + val;
+                }
+                formData.append('split_roads', split_roads);
+            }
             const resp = await fetch('/api/transcribe', {method: 'POST', body: formData});
             const data = await resp.json();
             if (!data.task_id) {
@@ -99,7 +147,9 @@
                 const s = await r.json();
                 if (s.status === 'done') {
                     document.getElementById('transcribe-status').textContent = 'Готово!';
-                    document.getElementById('transcribe-result').textContent = s.result;
+                    const resultBlock = document.getElementById('transcribe-result');
+                    resultBlock.innerText = s.result || '';
+                    resultBlock.scrollTop = resultBlock.scrollHeight;
                 } else if (s.status === 'error') {
                     document.getElementById('transcribe-status').textContent = 'Ошибка: ' + s.error;
                 } else {

@@ -26,3 +26,5 @@ class Task:
         self.file_size = None  # размер файла в байтах
         self.queue_time = None  # время ожидания в очереди в секундах
         self.processing_time = None  # время выполнения задачи в секундах
+        self.role = None  # имя роли (если split_roads)
+        self.segments = None  # исходные сегменты whisper (для склейки по таймкодам)
