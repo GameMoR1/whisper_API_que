@@ -90,36 +90,35 @@
 
 ## 🗂️ Структура проекта
 
-app/
-
+```text
+whisper_API_que/
 ├── main.py
-
+├── README.md
+├── requirements.txt
+├── api/
+│   ├── __init__.py
+│   └── endpoints.py
 ├── core/
-
-│ ├── task.py
-
-│ ├── queue.py
-
-│ ├── gpu.py
-
-│ ├── model_manager.py
-
-│ └── utils.py
-
+│   ├── __init__.py
+│   ├── config.py
+│   ├── gpu.py
+│   ├── logger.py
+│   ├── model_manager.py
+│   ├── queue.py
+│   ├── task.py
+│   ├── utils.py
+│   ├── webhook_notifier.py
+│   └── webhook_timer.py
 ├── services/
-
-│ └── transcriber.py
-
+│   ├── __init__.py
+│   └── transcriber.py
 ├── static/
-
-│ └── style.css
-
+│   └── style.css
 ├── templates/
+│   └── index.html
+└── API_REFERENCE.md
+```
 
-│ └── index.html
-
-
----
 
 ## 🛠️ Основные возможности
 
