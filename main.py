@@ -28,7 +28,6 @@ def log(msg):
 # --- Предзагрузка моделей на CPU (только скачивание весов, VRAM не используется) ---
 preload_thread = threading.Thread(target=model_manager.preload_all)
 preload_thread.start()
-preload_thread.join()  # Дождаться полной загрузки моделей
 
 # --- Запуск воркеров под каждый GPU ---
 for gpu_id in range(torch.cuda.device_count()):
