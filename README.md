@@ -1,4 +1,11 @@
+
 # 🎤 Whisper Transcription API
+
+<p align="center">
+  <a href="./API_REFERENCE.md" style="text-decoration:none;">
+    <img src="https://img.shields.io/badge/API%20Reference-%F0%9F%93%96-blue?style=for-the-badge" alt="API Reference"/>
+  </a>
+</p>
 
 **Много-GPU асинхронный API для транскрибации аудио с поддержкой очереди, автозагрузки моделей и улучшения текста через GPT.**
 
