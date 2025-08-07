@@ -2,7 +2,7 @@
 
 MODEL_NAMES = ['large-v2']
 
-WEBHOOK_INTERVAL = 1200  # 20 минут
+WEBHOOK_INTERVAL = 600  # 10 минут
 
 WEBHOOK_ENABLED = True
 
