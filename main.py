@@ -228,7 +228,25 @@ def task_status(task_id: str):
             gpt_result = improve_transcription_with_gpt(prompt)
             return {"status": "done", "result": gpt_result}
         except Exception as e:
-            return {"status": "done", "result": gpt_input + f"\n\n[Ошибка улучшения через GPT: {e}]"}
+            # Если GPT не сработал, собираем реплики по времени из всех ролей
+            all_segments = []
+            for t in all_tasks:
+                role = getattr(t, "role", None) or "role"
+                segments = getattr(t, "segments", None)
+                if segments:
+                    for seg in segments:
+                        all_segments.append({
+                            "role": role,
+                            "start": seg.get("start", 0),
+                            "text": seg.get("text", "").strip()
+                        })
+            # Сортируем по времени
+            all_segments.sort(key=lambda x: x["start"])
+            def format_timestamp(seconds):
+                m, s = divmod(int(seconds), 60)
+                return f"{m:02d}:{s:02d}"
+            dialog = "\n".join(f"[{format_timestamp(seg['start'])}] {seg['role']}: {seg['text']}" for seg in all_segments)
+            return {"status": "done", "result": dialog + f"\n\n[Ошибка улучшения через GPT: {e}]"}
 
     # Обычная задача
     for coll in [queue.processing, queue.completed, queue.failed]:
