@@ -107,14 +107,22 @@
                 const inp = document.createElement('input');
                 inp.type = 'text';
                 inp.placeholder = 'Роль ' + (i+1);
-                inp.required = true;
                 inp.name = 'split_role_' + i;
                 inp.style = 'margin-right:8px; margin-bottom:4px; width:120px;';
+                if (splitCheckbox.checked) inp.required = true;
                 splitNames.appendChild(inp);
             }
         }
         splitCheckbox.addEventListener('change', function() {
             splitFields.style.display = this.checked ? '' : 'none';
+            for (let i = 0; i < splitNames.children.length; ++i) {
+                splitNames.children[i].value = '';
+                if (this.checked) {
+                    splitNames.children[i].required = true;
+                } else {
+                    splitNames.children[i].required = false;
+                }
+            }
         });
         splitCount.addEventListener('input', updateRoleFields);
         updateRoleFields();
