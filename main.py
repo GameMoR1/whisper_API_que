@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import FileResponse
 from core.queue import TaskQueue
 from core.gpu import GPUWorker
 from core.task import Task
@@ -355,3 +356,39 @@ def api_webhook_timer():
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/completed", response_class=HTMLResponse)
+def completed(request: Request):
+    import os
+    results_dir = os.path.abspath("results")
+    os.makedirs(results_dir, exist_ok=True)
+    files = []
+    for name in sorted(os.listdir(results_dir), reverse=True):
+        if name.lower().endswith('.txt'):
+            files.append({
+                "name": name,
+                "size": os.path.getsize(os.path.join(results_dir, name))
+            })
+    return templates.TemplateResponse("completed.html", {"request": request, "files": files})
+
+@app.get("/download/{filename}")
+def download_file(filename: str):
+    import os
+    results_dir = os.path.abspath("results")
+    file_path = os.path.join(results_dir, filename)
+    if not os.path.isfile(file_path):
+        return JSONResponse({"error": "File not found"}, status_code=404)
+    return FileResponse(path=file_path, filename=filename, media_type='text/plain; charset=utf-8')
+
+@app.delete("/delete/{filename}")
+def delete_file(filename: str):
+    import os
+    results_dir = os.path.abspath("results")
+    file_path = os.path.join(results_dir, filename)
+    if not os.path.isfile(file_path):
+        return JSONResponse({"error": "File not found"}, status_code=404)
+    try:
+        os.remove(file_path)
+        return {"status": "deleted"}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)

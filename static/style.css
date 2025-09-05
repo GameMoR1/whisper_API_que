@@ -122,6 +122,33 @@ button[type="submit"] {
     transition: background 0.2s, color 0.2s;
 }
 
+.button-like {
+    display: inline-block;
+    background: #44475a;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 7px;
+    text-decoration: none;
+    box-shadow: 0 2px 8px #0003;
+}
+
+.button-like:hover {
+    background: #58627a;
+}
+
+/* Кнопки в одну строку */
+.action-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+.action-row button[type="submit"] {
+    margin-top: 0;
+}
+
 button[type="submit"]:hover {
     background: linear-gradient(90deg, #ffbe76 0%, #70a1ff 100%);
     color: #191724;

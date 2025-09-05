@@ -9,14 +9,18 @@
     <div class="container">
         <h1>Transcribe API</h1>
         <section class="upload-section">
-            <h2>Загрузить аудиофайл для транскрибации</h2>
+            <h2>Загрузить аудио/видеофайл для транскрибации</h2>
             <form id="upload-form">
                 <div class="form-row">
                     <label>
-                        Аудиофайл <span style="color:#ffd580">*</span><br>
-                        <small>Выберите аудиофайл для транскрибации (mp3, wav, ogg, m4a, flac).</small>
+                        Аудио/Видеофайлы <span style="color:#ffd580">*</span><br>
+                        <small>Можно выбрать сразу несколько файлов (mp3, wav, ogg, m4a, flac, mp4, avi, mov, mkv, webm). Из видео будет извлечено аудио.</small>
                     </label>
-                    <input type="file" name="file" accept=".mp3,.wav,.ogg,.m4a,.flac" required>
+                    <input id="file-input" type="file" name="file" accept=".mp3,.wav,.ogg,.m4a,.flac,.mp4,.avi,.mov,.mkv,.webm" multiple required>
+                    <div id="drop-zone" style="margin-top:8px; padding:14px; border:1px dashed #444; border-radius:7px; color:#b6b6b6; text-align:center; cursor:pointer;">
+                        Перетащите файлы сюда или кликните, чтобы выбрать
+                    </div>
+                    <div id="selected-files" style="margin-top:6px; color:#8be9fd; font-size:0.95em;"></div>
                 </div>
                 <div class="form-row">
                     <label>
@@ -66,7 +70,10 @@
                     </div>
                     <div id="split-roads-names"></div>
                 </div>
-                <button type="submit">Отправить</button>
+                <div class="action-row">
+                    <button type="submit">Отправить</button>
+                    <a href="/completed" class="button-like">Готовые</a>
+                </div>
             </form>
             <div id="transcribe-status" class="status"></div>
             <pre id="transcribe-result" class="result"></pre>
@@ -99,6 +106,10 @@
         const splitFields = document.getElementById('split-roads-fields');
         const splitCount = document.getElementById('split-roads-count');
         const splitNames = document.getElementById('split-roads-names');
+        const modelSelect = document.querySelector('select[name="model_name"]');
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const selectedFiles = document.getElementById('selected-files');
 
         function updateRoleFields() {
             const n = parseInt(splitCount.value) || 2;
@@ -127,12 +138,66 @@
         splitCount.addEventListener('input', updateRoleFields);
         updateRoleFields();
 
+        // --- Populate model list from backend config (only models from config.py) ---
+        async function loadModelOptions() {
+            try {
+                const status = await fetch('/api/model_status').then(r=>r.json());
+                const models = Object.keys(status);
+                if (!models || !models.length) return;
+                const current = modelSelect.value;
+                modelSelect.innerHTML = '';
+                for (const name of models) {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    modelSelect.appendChild(opt);
+                }
+                // try keep previous selection, else select first
+                if (models.includes(current)) {
+                    modelSelect.value = current;
+                } else {
+                    modelSelect.value = models[0];
+                }
+            } catch (e) {
+                // ignore, keep default options
+            }
+        }
+        loadModelOptions();
+
         // --- Submit handler ---
+        let isUploading = false;
         document.getElementById('upload-form').onsubmit = async function(e) {
             e.preventDefault();
-            document.getElementById('transcribe-status').textContent = 'Загрузка...';
-            document.getElementById('transcribe-result').textContent = '';
-            const formData = new FormData(this);
+            const statusEl = document.getElementById('transcribe-status');
+            const resultEl = document.getElementById('transcribe-result');
+            if (isUploading) return; // guard
+            statusEl.textContent = '';
+            resultEl.textContent = '';
+
+            const files = fileInput.files;
+            if (!files || !files.length) {
+                statusEl.textContent = 'Файлы не выбраны';
+                return;
+            }
+
+            // Считываем значения формы ДО отключения элементов
+            const formEl = document.getElementById('upload-form');
+            const formFD = new FormData(formEl);
+            const modelNameVal = formFD.get('model_name');
+            const initialPromptVal = formFD.get('initial_prompt') || '';
+            const upSpeedVal = formFD.get('up_speed') || '1.0';
+            const upgradeChecked = !!formEl.querySelector('input[name="upgrade_transcribation"]').checked;
+
+            // disable UI while processing
+            isUploading = true;
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const controls = [submitBtn, fileInput, modelSelect, this.querySelector('input[name="initial_prompt"]'), this.querySelector('input[name="up_speed"]'), this.querySelector('input[name="upgrade_transcribation"]')];
+            controls.forEach(el=>{ if(el){ el.disabled = true; el.style.opacity = 0.7; }});
+            dropZone.style.pointerEvents = 'none';
+            dropZone.style.opacity = '0.6';
+
+            // Подготовка split_roads
+            let split_roads_val = null;
             if (splitCheckbox.checked) {
                 const n = parseInt(splitCount.value) || 2;
                 let split_roads = n + '';
@@ -140,32 +205,81 @@
                     const val = splitNames.children[i].value.trim() || ('Роль'+(i+1));
                     split_roads += ',' + val;
                 }
-                formData.append('split_roads', split_roads);
+                split_roads_val = split_roads;
             }
-            const resp = await fetch('/api/transcribe', {method: 'POST', body: formData});
-            const data = await resp.json();
-            if (!data.task_id) {
-                document.getElementById('transcribe-status').textContent = data.error || 'Ошибка при постановке задачи';
-                return;
-            }
-            document.getElementById('transcribe-status').textContent = 'Задача поставлена. Ожидание результата...';
-            // Опрос статуса
-            async function poll() {
-                const r = await fetch('/api/status/' + data.task_id);
-                const s = await r.json();
-                if (s.status === 'done') {
-                    document.getElementById('transcribe-status').textContent = 'Готово!';
-                    const resultBlock = document.getElementById('transcribe-result');
-                    resultBlock.innerText = s.result || '';
-                    resultBlock.scrollTop = resultBlock.scrollHeight;
-                } else if (s.status === 'error') {
-                    document.getElementById('transcribe-status').textContent = 'Ошибка: ' + s.error;
-                } else {
-                    setTimeout(poll, 1000);
+
+            async function uploadOne(file){
+                const fd = new FormData();
+                // Передаём заранее считанные значения
+                if (modelNameVal) fd.append('model_name', modelNameVal);
+                if (initialPromptVal) fd.append('initial_prompt', initialPromptVal);
+                fd.append('up_speed', upSpeedVal);
+                if (upgradeChecked) fd.append('upgrade_transcribation', 'true');
+                if (split_roads_val) fd.append('split_roads', split_roads_val);
+                fd.append('file', file);
+
+                const resp = await fetch('/api/transcribe', {method: 'POST', body: fd});
+                if (!resp.ok) {
+                    const t = await resp.text();
+                    throw new Error('HTTP ' + resp.status + ': ' + t);
                 }
+                const data = await resp.json();
+                if (!data.task_id) {
+                    throw new Error(data.error || 'Ошибка при постановке задачи');
+                }
+                // Poll until done
+                return new Promise((resolve, reject)=>{
+                    async function poll(){
+                        const r = await fetch('/api/status/' + data.task_id);
+                        const s = await r.json();
+                        if (s.status === 'done') return resolve(s.result || '');
+                        if (s.status === 'error') return reject(new Error(s.error || 'Ошибка'));
+                        setTimeout(poll, 1000);
+                    }
+                    poll();
+                });
             }
-            poll();
+
+            statusEl.textContent = `Отправка ${files.length} файлов...`;
+            const tasks = Array.from(files).map(async (f, idx)=>{
+                try {
+                    const text = await uploadOne(f);
+                    return {file:f.name, ok:true, text};
+                } catch(err){
+                    return {file:f.name, ok:false, error: String(err)};
+                }
+            });
+            const results = await Promise.all(tasks);
+            const success = results.filter(r=>r.ok).length;
+            const failed = results.length - success;
+            // show last successful text if any
+            const lastOk = results.slice().reverse().find(r=>r.ok);
+            if (lastOk) resultEl.innerText = lastOk.text || '';
+            statusEl.textContent = `Готово. Успешно: ${success}, Ошибки: ${failed}`;
+
+            // re-enable UI
+            controls.forEach(el=>{ if(el){ el.disabled = false; el.style.opacity = ''; }});
+            dropZone.style.pointerEvents = '';
+            dropZone.style.opacity = '';
+            isUploading = false;
         };
+
+        // Drag&drop множественных файлов
+        function updateSelectedList(files){
+            if(!files || !files.length){ selectedFiles.textContent=''; return; }
+            selectedFiles.textContent = Array.from(files).map(f=>f.name).join(', ');
+        }
+        fileInput.addEventListener('change', ()=>updateSelectedList(fileInput.files));
+        dropZone.addEventListener('click', ()=>fileInput.click());
+        ;['dragenter','dragover'].forEach(evt=>dropZone.addEventListener(evt, e=>{e.preventDefault(); e.stopPropagation(); dropZone.style.background='#20222a';}));
+        ;['dragleave','drop'].forEach(evt=>dropZone.addEventListener(evt, e=>{e.preventDefault(); e.stopPropagation(); dropZone.style.background='';}));
+        dropZone.addEventListener('drop', e=>{
+            const dt = e.dataTransfer;
+            if(dt && dt.files){
+                fileInput.files = dt.files;
+                updateSelectedList(dt.files);
+            }
+        });
 
         // Мониторинг статуса системы
         async function updateAll() {

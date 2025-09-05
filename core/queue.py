@@ -1,4 +1,6 @@
 import threading
+import os
+from datetime import datetime
 from collections import deque
 from core.logger import send_log_data
 from core.utils import log_event
@@ -33,7 +35,6 @@ class TaskQueue:
         with self.lock:
             task.status = 'done'
             task.result = result
-            from datetime import datetime
             task.completed_at = datetime.utcnow()
             # Вычисляем queue_time и processing_time
             if task.started_at and task.created_at:
@@ -55,6 +56,27 @@ class TaskQueue:
             }
             from main import logs as global_logs
             send_log_data(log_data, logs=global_logs)
+            # Сохранение результата в файл .txt
+            try:
+                os.makedirs("results", exist_ok=True)
+                # Базовое имя — оригинальное имя файла с заменой недопустимых символов и расширением .txt
+                orig_name = (task.filename or "result").replace("/", "_").replace("\\", "_")
+                if "." in orig_name:
+                    base, _ext = orig_name.rsplit(".", 1)
+                else:
+                    base = orig_name
+                candidate = base + ".txt"
+                out_path = os.path.join("results", candidate)
+                # Если такое имя уже есть, добавляем порядковый номер _2, _3, ...
+                counter = 2
+                while os.path.exists(out_path):
+                    candidate = f"{base}_{counter}.txt"
+                    out_path = os.path.join("results", candidate)
+                    counter += 1
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(task.result or "")
+            except Exception as se:
+                log_event(global_logs, f"Ошибка сохранения результата: {se}")
         except Exception as e:
             from main import logs as global_logs
             log_event(global_logs, f"Ошибка логирования: {e}")

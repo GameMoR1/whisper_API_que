@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Готовые результаты — Transcribe API</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark">
+    <div class="container">
+        <h1>Готовые результаты</h1>
+        <section class="upload-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h2 style="margin:0">Список файлов</h2>
+                <a href="/" class="button-like">На главную</a>
+            </div>
+            <div class="panel">
+                {% if files and files|length %}
+                <table class="gpu-table">
+                    <tr>
+                        <th>Файл</th>
+                        <th>Размер</th>
+                        <th>Действия</th>
+                    </tr>
+                    {% for f in files %}
+                    <tr>
+                        <td>{{ f.name }}</td>
+                        <td>{{ (f.size/1024)|round(1) }} КБ</td>
+                        <td>
+                            <a href="/download/{{ f.name }}" class="button-like" download>Скачать</a>
+                            <a href="#" class="button-like" onclick="return viewText('{{ f.name }}')">Посмотреть</a>
+                            <a href="#" class="button-like" style="background:#c0392b" onclick="return deleteFile('{{ f.name }}')">Удалить</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% else %}
+                <div class="empty">Готовых результатов пока нет</div>
+                {% endif %}
+            </div>
+            <pre id="viewer" class="result" style="display:none; max-height:420px; overflow:auto;"></pre>
+        </section>
+    </div>
+    <script>
+        async function viewText(name){
+            const r = await fetch('/download/' + encodeURIComponent(name));
+            if(!r.ok){
+                alert('Не удалось получить файл');
+                return false;
+            }
+            const text = await r.text();
+            const v = document.getElementById('viewer');
+            v.style.display = '';
+            v.textContent = text;
+            v.scrollTop = 0;
+            return false;
+        }
+        async function deleteFile(name){
+            if(!confirm('Удалить файл ' + name + '?')) return false;
+            const r = await fetch('/delete/' + encodeURIComponent(name), {method:'DELETE'});
+            if(r.ok){
+                location.reload();
+            }else{
+                alert('Не удалось удалить файл');
+            }
+            return false;
+        }
+    </script>
+</body>
+</html>
+
+
