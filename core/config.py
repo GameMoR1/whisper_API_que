@@ -4,7 +4,7 @@ MODEL_NAMES = ['large-v2']
 
 WEBHOOK_INTERVAL = 600  # 10 минут
 
-WEBHOOK_ENABLED = Flase
+WEBHOOK_ENABLED = False
 
 WEBHOOK_URL = 'https://n8n.kyter.space/webhook/a141441b-57cf-4c44-b131-bd86cb9c3a3a'
 
