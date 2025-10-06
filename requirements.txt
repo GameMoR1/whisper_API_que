@@ -5,4 +5,5 @@ python-multipart
 openai-whisper
 torch
 g4f
+httpx
 numpy<=2.2.0
