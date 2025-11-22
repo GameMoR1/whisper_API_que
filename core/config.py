@@ -1,6 +1,6 @@
 # Все основные константы для настройки сервиса
 
-MODEL_NAMES = ['large-v2']
+MODEL_NAMES = ['large-v2', 'large-v3']
 
 WEBHOOK_INTERVAL = 600  # 10 минут
 
